@@ -1,0 +1,2 @@
+include ':app', ':json-fixtures-intellij', ':json-fixtures-lib'
+
