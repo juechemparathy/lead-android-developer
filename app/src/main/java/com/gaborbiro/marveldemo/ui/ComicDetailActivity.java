@@ -41,6 +41,7 @@ public class ComicDetailActivity extends AppCompatActivity
     private ImageView mActionBarBackdropImage;
     private ImageView mCameraView;
 
+    private boolean mHighResCoverImageLoaded = false;
 
     private BitmapCache mBitmapCache;
 
@@ -93,21 +94,28 @@ public class ComicDetailActivity extends AppCompatActivity
         }
     }
 
-    @Override public void onBackPressed() {
-        setupReturnAnimation();
-        super.onBackPressed();
+    @Override
+    public void onBackPressed() {
+        if (!getSupportFragmentManager().popBackStackImmediate()) {
+            finish();
+        }
     }
 
-    @TargetApi(21) private void setupReturnAnimation() {
-        getWindow().getSharedElementReturnTransition()
-                .removeTarget("thumb");
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        int id = item.getItemId();
+        if (id == android.R.id.home) {
+            finish();
+            return true;
+        }
+        return super.onOptionsItemSelected(item);
     }
 
     private BitmapCache.Listener mThumbnailCacheLoaderListener =
             new BitmapCache.Listener() {
 
                 @Override public void onBitmapLoaded(String key, Bitmap bitmap) {
-                    if (bitmap != null) {
+                    if (bitmap != null && !mHighResCoverImageLoaded) {
                         mActionBarBackdropImage.setImageBitmap(bitmap);
                         mBitmapCache.deleteBitmap(key);
                         applyPalette(bitmap);
@@ -127,18 +135,10 @@ public class ComicDetailActivity extends AppCompatActivity
         }
     }
 
-    @Override public boolean onOptionsItemSelected(MenuItem item) {
-        int id = item.getItemId();
-        if (id == android.R.id.home) {
-            NavUtils.navigateUpTo(this, new Intent(this, ComicListActivity.class));
-            return true;
-        }
-        return super.onOptionsItemSelected(item);
-    }
-
     private Target mBitmapLoadedHandler = new Target() {
 
         @Override public void onBitmapLoaded(Bitmap bitmap, Picasso.LoadedFrom from) {
+            mHighResCoverImageLoaded = true;
             mActionBarBackdropImage.setImageBitmap(bitmap);
             applyPalette(bitmap);
         }

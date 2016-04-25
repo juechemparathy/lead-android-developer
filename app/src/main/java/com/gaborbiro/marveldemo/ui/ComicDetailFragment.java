@@ -2,13 +2,11 @@ package com.gaborbiro.marveldemo.ui;
 
 import android.app.Activity;
 import android.os.Bundle;
-import android.support.design.widget.CollapsingToolbarLayout;
 import android.support.v4.app.Fragment;
 import android.text.Html;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.ImageView;
 import android.widget.TextView;
 
 import com.gaborbiro.marveldemo.R;
@@ -81,7 +79,8 @@ public class ComicDetailFragment extends Fragment {
         View rootView = inflater.inflate(R.layout.comic_detail, container, false);
 
         if (mComic != null) {
-            String description = mComic.title + "\n\n" + mComic.description;
+            String description = mComic.title + "<p>" +
+                    (mComic.description != null ? mComic.description : "");
             ((TextView) rootView.findViewById(R.id.comic_detail)).setText(
                     Html.fromHtml(description));
         }

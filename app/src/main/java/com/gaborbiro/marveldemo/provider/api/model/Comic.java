@@ -55,6 +55,6 @@ import javax.annotation.Generated;
         if (thumbnail == null) {
             return null;
         }
-        return thumbnail.path + "/standard_xlarge." + thumbnail.extension;
+        return thumbnail.path + "/standard_fantastic." + thumbnail.extension;
     }
 }
