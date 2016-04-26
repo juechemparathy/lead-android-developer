@@ -55,12 +55,6 @@ public class ComicDetailActivity extends AppCompatActivity
      */
     public static final String ARG_POSITION = "position";
 
-    /**
-     * The cache key of the thumbnail bitmap of the selected comic. Used to display a
-     * placeholder cover really fast, until the high res cover is fetched
-     */
-    public static final String ARG_SELECTED_THUMB_CACHE_KEY = "selected_thumb_cache_key";
-
     private CollapsingToolbarLayout mCollapsingToolbarLayout;
     private ImageView mActionBarBackdropImage;
     private ImageView mCameraView;
@@ -113,7 +107,6 @@ public class ComicDetailActivity extends AppCompatActivity
                     .add(R.id.comic_detail_container, fragment)
                     .commit();
         }
-        //        postponeEnterTransition();
     }
 
     private void loadCoverImage() {

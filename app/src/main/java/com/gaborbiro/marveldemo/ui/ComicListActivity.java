@@ -6,8 +6,6 @@ import android.os.Bundle;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.support.annotation.Nullable;
-import android.support.v4.app.ActivityOptionsCompat;
-import android.support.v4.util.Pair;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
@@ -56,8 +54,6 @@ import retrofit2.Response;
  * item details side-by-side using two vertical panes.
  */
 public class ComicListActivity extends AppCompatActivity {
-
-    public static final String KEY_CACHE_SELECTED_THUMB = "selected_thumb";
 
     private static final int REQUEST_LINK_TO_DBX = 1;
 
@@ -378,23 +374,8 @@ public class ComicListActivity extends AppCompatActivity {
         private void startDetailActivity(Comic comic, int position, ImageView thumbView) {
             Intent intent = new Intent(ComicListActivity.this, ComicDetailActivity.class);
             intent.putExtra(ComicDetailFragment.ARG_ITEM, comic);
-            intent.putExtra(ComicDetailActivity.ARG_SELECTED_THUMB_CACHE_KEY,
-                    KEY_CACHE_SELECTED_THUMB);
             intent.putExtra(ComicDetailActivity.ARG_POSITION, position);
-
-            if (android.os.Build.VERSION.SDK_INT >=
-                    android.os.Build.VERSION_CODES.ICE_CREAM_SANDWICH_MR1) {
-                View decor = getWindow().getDecorView();
-                View navBar = decor.findViewById(android.R.id.navigationBarBackground);
-                Pair<View, String> p1 = Pair.create((View) thumbView, "thumb");
-                Pair<View, String> p2 = Pair.create(navBar, "navBar");
-                ActivityOptionsCompat options =
-                        ActivityOptionsCompat.makeSceneTransitionAnimation(
-                                ComicListActivity.this, p1, p2);
-                startActivity(intent, options.toBundle());
-            } else {
-                startActivity(intent);
-            }
+            startActivity(intent);
         }
 
         public class ComicViewHolder extends RecyclerView.ViewHolder {
