@@ -57,8 +57,8 @@ public class ComicDetailActivity extends AppCompatActivity
 
     private CollapsingToolbarLayout mCollapsingToolbarLayout;
     private ImageView mActionBarBackdropImage;
-    private ImageView mCameraView;
-    private ImageView mDeleteView;
+    private ImageView mCameraButton;
+    private ImageView mDeleteButton;
     private ProgressBar mProgressBar;
 
     private Comic mComic;
@@ -87,10 +87,10 @@ public class ComicDetailActivity extends AppCompatActivity
                 (CollapsingToolbarLayout) findViewById(R.id.toolbar_layout);
         mCollapsingToolbarLayout.setExpandedTitleColor(
                 getResources().getColor(android.R.color.transparent));
-        mCameraView = (ImageView) findViewById(R.id.camera);
-        mCameraView.setOnClickListener(this);
-        mDeleteView = (ImageView) findViewById(R.id.delete);
-        mDeleteView.setOnClickListener(this);
+        mCameraButton = (ImageView) findViewById(R.id.camera);
+        mCameraButton.setOnClickListener(this);
+        mDeleteButton = (ImageView) findViewById(R.id.delete);
+        mDeleteButton.setOnClickListener(this);
         mProgressBar = (ProgressBar) findViewById(android.R.id.progress);
 
         mComic = getIntent().getParcelableExtra(ComicDetailFragment.ARG_ITEM);
@@ -138,7 +138,7 @@ public class ComicDetailActivity extends AppCompatActivity
 
     private void updateDeleteButton() {
         try {
-            mDeleteView.setVisibility(
+            mDeleteButton.setVisibility(
                     mDropboxApi.hasCover(mComic.id) ? View.VISIBLE : View.INVISIBLE);
         } catch (DbxException e) {
             e.printStackTrace();
@@ -222,8 +222,8 @@ public class ComicDetailActivity extends AppCompatActivity
                         int negative = Color.rgb(255 - Color.red(vibrantColor),
                                 255 - Color.green(vibrantColor),
                                 255 - Color.blue(vibrantColor));
-                        mCameraView.setColorFilter(negative);
-                        mDeleteView.setColorFilter(negative);
+                        mCameraButton.setColorFilter(negative);
+                        mDeleteButton.setColorFilter(negative);
                         supportStartPostponedEnterTransition();
                     }
                 });
@@ -262,6 +262,7 @@ public class ComicDetailActivity extends AppCompatActivity
             }
         } else if (v.getId() == R.id.delete) {
             try {
+                mDropboxApi.deleteCoverPhoto(mDropboxApi.getCover(mComic.id));
                 mDropboxApi.removeCover(mComic.id);
                 loadCoverImage();
                 notifyParentList();

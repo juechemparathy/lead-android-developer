@@ -11,4 +11,5 @@ public interface DropboxApi {
     void removeCover(int comicId) throws DbxException;
 
     String uploadCoverPhoto(Bitmap bitmap);
+    void deleteCoverPhoto(String name);
 }

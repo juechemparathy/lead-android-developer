@@ -85,4 +85,16 @@ public class DropboxApiImpl implements DropboxApi {
         }
         return null;
     }
+
+    @Override public void deleteCoverPhoto(String name) {
+        DbxFileSystem fileSystem = mFileSystemProvider.get();
+        DbxPath dbPath =
+                new DbxPath(DbxPath.ROOT.getChild(DropboxUtils.COVER_BACKUP_FOLDER),
+                        name);
+        try {
+            fileSystem.delete(dbPath);
+        } catch (DbxException e) {
+            e.printStackTrace();
+        }
+    }
 }
