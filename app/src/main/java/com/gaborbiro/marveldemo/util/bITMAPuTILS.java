@@ -76,7 +76,7 @@ public class BitmapUtils {
             }
 
             BitmapFactory.Options o2 = new BitmapFactory.Options();
-            o2.inSampleSize = 6;
+            o2.inSampleSize = 8;
             return flip(BitmapFactory.decodeStream(is2, null, o2));
         } catch (Exception e) {
             return null;

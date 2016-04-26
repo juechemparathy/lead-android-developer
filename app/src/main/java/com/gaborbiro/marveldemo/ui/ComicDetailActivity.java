@@ -2,6 +2,7 @@ package com.gaborbiro.marveldemo.ui;
 
 import android.content.Intent;
 import android.graphics.Bitmap;
+import android.graphics.Color;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Bundle;
@@ -11,10 +12,11 @@ import android.support.v7.app.AppCompatActivity;
 import android.support.v7.graphics.Palette;
 import android.support.v7.widget.Toolbar;
 import android.text.TextUtils;
-import android.util.Log;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.ImageView;
+import android.widget.ProgressBar;
+import android.widget.Toast;
 
 import com.dropbox.sync.android.DbxException;
 import com.gaborbiro.marveldemo.App;
@@ -62,6 +64,8 @@ public class ComicDetailActivity extends AppCompatActivity
     private CollapsingToolbarLayout mCollapsingToolbarLayout;
     private ImageView mActionBarBackdropImage;
     private ImageView mCameraView;
+    private ImageView mDeleteView;
+    private ProgressBar mProgressBar;
 
     private Comic mComic;
     private String mCurrentPhotoPath;
@@ -91,10 +95,14 @@ public class ComicDetailActivity extends AppCompatActivity
                 getResources().getColor(android.R.color.transparent));
         mCameraView = (ImageView) findViewById(R.id.camera);
         mCameraView.setOnClickListener(this);
+        mDeleteView = (ImageView) findViewById(R.id.delete);
+        mDeleteView.setOnClickListener(this);
+        mProgressBar = (ProgressBar) findViewById(android.R.id.progress);
 
         mComic = getIntent().getParcelableExtra(ComicDetailFragment.ARG_ITEM);
 
         loadCoverImage();
+        updateDeleteButton();
 
         if (savedInstanceState == null) {
             Bundle arguments = new Bundle();
@@ -105,11 +113,13 @@ public class ComicDetailActivity extends AppCompatActivity
                     .add(R.id.comic_detail_container, fragment)
                     .commit();
         }
-        postponeEnterTransition();
+        //        postponeEnterTransition();
     }
 
     private void loadCoverImage() {
-        Picasso.Builder builder = new Picasso.Builder(App.getAppContext());
+        BitmapLoadedHandler handler = new BitmapLoadedHandler(mComic);
+        Picasso.Builder builder =
+                new Picasso.Builder(App.getAppContext()).listener(handler);
         RequestCreator requestCreator;
         try {
             String path = mDropboxApi.getCover(mComic.id);
@@ -130,30 +140,78 @@ public class ComicDetailActivity extends AppCompatActivity
             requestCreator = builder.build()
                     .load(mComic.getCoverImageUri());
         }
-        requestCreator.into(mBitmapLoadedHandler);
+        requestCreator.into(handler);
     }
 
-    private Target mBitmapLoadedHandler = new Target() {
+    private void updateDeleteButton() {
+        try {
+            mDeleteView.setVisibility(
+                    mDropboxApi.hasCover(mComic.id) ? View.VISIBLE : View.INVISIBLE);
+        } catch (DbxException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private class BitmapLoadedHandler implements Target, Picasso.Listener {
+
+        private Comic mComic;
+
+        public BitmapLoadedHandler(Comic mComic) {
+            this.mComic = mComic;
+        }
 
         @Override public void onBitmapLoaded(Bitmap bitmap, Picasso.LoadedFrom from) {
             if (mActionBarBackdropImage != null) {
+                mProgressBar.setVisibility(View.GONE);
                 mActionBarBackdropImage.setImageBitmap(bitmap);
                 applyPalette(bitmap);
-                EventBus.getDefault()
-                        .post(new CoverImageUpdateEvent(
-                                getIntent().getIntExtra(ARG_POSITION, -1)));
+                notifyParentList();
+                updateDeleteButton();
             }
-            Log.d("test", "cover loaded");
         }
 
         @Override public void onBitmapFailed(Drawable errorDrawable) {
-            Log.d("test", "error loading cover");
+            mProgressBar.setVisibility(View.GONE);
+        }
+
+        @Override
+        public void onImageLoadFailed(Picasso picasso, Uri uri, Exception exception) {
+            String message;
+            if (exception instanceof DbxException.DiskSpace) {
+                message = "Disk space error. Free up some space on your device.";
+            } else if (exception instanceof DbxException.Network ||
+                    exception instanceof DbxException.NetworkConnection ||
+                    exception instanceof DbxException.NetworkTimeout) {
+                message = "Networking error. Please verify your internet connection.";
+            } else if (exception instanceof DbxException.Quota) {
+                message = "Dropbox traffic limit reached. Please try again tomorrow.";
+            } else if (exception instanceof DbxException.Ssl ||
+                    exception instanceof DbxException.Unauthorized) {
+                message = "Server authorization error. Please try again later.";
+            } else if (exception instanceof DbxException.NotFound) {
+                message =
+                        "The cover has been deleted from dropbox. Resetting the default" +
+                                " cover.";
+                try {
+                    mDropboxApi.removeCover(mComic.id);
+                    loadCoverImage();
+                    updateDeleteButton();
+                    notifyParentList();
+                } catch (DbxException e) {
+                    e.printStackTrace();
+                }
+            } else {
+                message = "Error: " + exception.getClass()
+                        .getSimpleName();
+            }
+            Toast.makeText(ComicDetailActivity.this, message, Toast.LENGTH_LONG)
+                    .show();
         }
 
         @Override public void onPrepareLoad(Drawable placeHolderDrawable) {
-            Log.d("test", "prepare loading cover");
+            mProgressBar.setVisibility(View.VISIBLE);
         }
-    };
+    }
 
     private void applyPalette(Bitmap bitmap) {
         Palette.from(bitmap)
@@ -167,7 +225,12 @@ public class ComicDetailActivity extends AppCompatActivity
                                 palette.getMutedColor(primary));
                         mCollapsingToolbarLayout.setStatusBarScrimColor(
                                 palette.getDarkMutedColor(primaryDark));
-                        mCameraView.setColorFilter(palette.getVibrantColor(primary));
+                        int vibrantColor = palette.getVibrantColor(primary);
+                        int negative = Color.rgb(255 - Color.red(vibrantColor),
+                                255 - Color.green(vibrantColor),
+                                255 - Color.blue(vibrantColor));
+                        mCameraView.setColorFilter(negative);
+                        mDeleteView.setColorFilter(negative);
                         supportStartPostponedEnterTransition();
                     }
                 });
@@ -198,6 +261,15 @@ public class ComicDetailActivity extends AppCompatActivity
             } catch (IOException e) {
                 e.printStackTrace();
             }
+        } else if (v.getId() == R.id.delete) {
+            try {
+                mDropboxApi.removeCover(mComic.id);
+                loadCoverImage();
+                notifyParentList();
+                updateDeleteButton();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
     }
 
@@ -210,11 +282,16 @@ public class ComicDetailActivity extends AppCompatActivity
                         mActionBarBackdropImage.getHeight());
                 mActionBarBackdropImage.setImageBitmap(bitmap);
                 saveImageToDropbox();
-                EventBus.getDefault()
-                        .post(new CoverImageUpdateEvent(
-                                getIntent().getIntExtra(ARG_POSITION, -1)));
+                notifyParentList();
+                updateDeleteButton();
             }
         }
+    }
+
+    private void notifyParentList() {
+        EventBus.getDefault()
+                .post(new CoverImageUpdateEvent(
+                        getIntent().getIntExtra(ARG_POSITION, -1)));
     }
 
     private void saveImageToDropbox() {

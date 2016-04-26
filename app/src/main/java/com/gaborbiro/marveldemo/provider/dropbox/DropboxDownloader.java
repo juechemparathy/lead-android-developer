@@ -3,6 +3,7 @@ package com.gaborbiro.marveldemo.provider.dropbox;
 import android.graphics.Bitmap;
 import android.net.Uri;
 
+import com.dropbox.sync.android.DbxException;
 import com.dropbox.sync.android.DbxFile;
 import com.dropbox.sync.android.DbxFileSystem;
 import com.dropbox.sync.android.DbxPath;
@@ -35,8 +36,9 @@ public class DropboxDownloader implements Downloader {
                     .open(dbPath);
             fis = file.getReadStream();
             bitmap = BitmapUtils.decodeStream(fis, 10);
-        } catch (Exception e) {
+        } catch (IOException e) {
             e.printStackTrace();
+            throw e;
         } finally {
             if (fis != null) {
                 fis.close();
