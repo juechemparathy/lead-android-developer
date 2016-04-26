@@ -2,10 +2,10 @@ package com.gaborbiro.marveldemo.ui;
 
 import android.content.Intent;
 import android.net.Uri;
-import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Parcel;
 import android.os.Parcelable;
+import android.support.annotation.Nullable;
 import android.support.v4.app.ActivityOptionsCompat;
 import android.support.v4.util.Pair;
 import android.support.v7.app.AppCompatActivity;
@@ -28,6 +28,7 @@ import com.gaborbiro.marveldemo.R;
 import com.gaborbiro.marveldemo.provider.api.ComicsFetchingException;
 import com.gaborbiro.marveldemo.provider.api.MarvelApi;
 import com.gaborbiro.marveldemo.provider.api.model.Comic;
+import com.gaborbiro.marveldemo.provider.api.model.Comics;
 import com.gaborbiro.marveldemo.provider.dropbox.DropboxApi;
 import com.gaborbiro.marveldemo.provider.dropbox.DropboxDownloader;
 import com.squareup.picasso.Picasso;
@@ -42,6 +43,10 @@ import java.util.List;
 
 import javax.inject.Inject;
 
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
+
 /**
  * An activity representing a list of Comics. This activity
  * has different presentations for handset and tablet-size devices. On
@@ -55,6 +60,8 @@ public class ComicListActivity extends AppCompatActivity {
     public static final String KEY_CACHE_SELECTED_THUMB = "selected_thumb";
 
     private static final int REQUEST_LINK_TO_DBX = 1;
+
+    private static final int DEFAULT_PAGE_SIZE = 20;
 
     /**
      * Whether or not the activity is in two-pane mode, i.e. running on a tablet
@@ -81,23 +88,26 @@ public class ComicListActivity extends AppCompatActivity {
                 .register(this);
 
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
-        setSupportActionBar(toolbar);
-        toolbar.setTitle(getTitle());
+
+        if (toolbar != null) {
+            setSupportActionBar(toolbar);
+            toolbar.setTitle(getTitle());
+        }
 
         mList = (RecyclerView) findViewById(R.id.comic_list);
         assert mList != null;
+
+        mList.setAdapter(new ComicsAdapter(new Comic[0]));
 
         LinearLayoutManager linearLayoutManager = new LinearLayoutManager(this);
         mList.setLayoutManager(linearLayoutManager);
         mScrollListener = new EndlessRecyclerViewScrollListener(linearLayoutManager) {
 
             @Override public void onLoadMore(int page, int totalItemsCount) {
-                // this will be automatically invoked when the app is started
-                new ComicsLoaderTask().execute(new ComicsLoaderParams(page + 1));
+                loadPage(page + 1);
             }
         };
         mList.addOnScrollListener(mScrollListener);
-
 
         if (findViewById(R.id.comic_detail_container) != null) {
             // The detail container view will be present only in the
@@ -106,7 +116,6 @@ public class ComicListActivity extends AppCompatActivity {
             // activity should be in two-pane mode.
             mTwoPane = true;
         }
-
 
         if (!mAccountManager.hasLinkedAccount()) {
             mAccountManager.startLink(this, REQUEST_LINK_TO_DBX);
@@ -117,19 +126,35 @@ public class ComicListActivity extends AppCompatActivity {
 
     private void setupUI(Bundle savedInstanceState) {
         if (savedInstanceState == null) {
-            new ComicsLoaderTask().execute(new ComicsLoaderParams(0));
+            loadPage(0);
         } else {
             // configuration change
             SavedState savedState = SavedState.load(savedInstanceState);
-            mSelectedPosition = savedState.selectedPosition;
 
-            if (savedState != null && savedState.comics != null) {
-                mList.setAdapter(new ComicsAdapter(savedState.comics));
-                mList.getLayoutManager()
-                        .scrollToPosition(savedState.scrollPosition);
+            if (savedState != null) {
+                mSelectedPosition = savedState.selectedPosition;
+
+                if (savedState.comics != null) {
+                    mList.setAdapter(new ComicsAdapter(savedState.comics));
+                    mList.getLayoutManager()
+                            .scrollToPosition(savedState.scrollPosition);
+                } else {
+                    loadPage(0);
+                }
             } else {
-                new ComicsLoaderTask().execute(new ComicsLoaderParams(0));
+                loadPage(0);
             }
+        }
+    }
+
+    private void loadPage(int page) {
+        try {
+            ((ComicsAdapter) mList.getAdapter()).setProgressIndicatorVisibility(true);
+            mMarvelApi.getComics(page, DEFAULT_PAGE_SIZE, retrofitCallback);
+        } catch (IOException | ComicsFetchingException e) {
+            e.printStackTrace();
+            Toast.makeText(ComicListActivity.this, e.getMessage(), Toast.LENGTH_SHORT)
+                    .show();
         }
     }
 
@@ -206,13 +231,12 @@ public class ComicListActivity extends AppCompatActivity {
             outState.putParcelable(PARCEL_SAVED_STATE, this);
         }
 
-        public static SavedState load(Bundle savedInstanceState) {
+        public static @Nullable SavedState load(Bundle savedInstanceState) {
             return savedInstanceState.getParcelable(PARCEL_SAVED_STATE);
         }
     }
 
-    @Subscribe
-    public void onEvent(CoverImageUpdateEvent event) {
+    @Subscribe public void onEvent(CoverImageUpdateEvent event) {
         if (event.mPosition > -1 && event.mPosition < mList.getAdapter()
                 .getItemCount()) {
             mList.getAdapter()
@@ -223,6 +247,7 @@ public class ComicListActivity extends AppCompatActivity {
     private void loadThumbImage(ImageView target, Comic comic, int placeholderResId) {
         Picasso.Builder builder = new Picasso.Builder(App.getAppContext());
         RequestCreator requestCreator;
+        target.setImageResource(placeholderResId);
         try {
             String path = mDropboxApi.getCover(comic.id);
 
@@ -402,59 +427,27 @@ public class ComicListActivity extends AppCompatActivity {
         }
     }
 
-    private class ComicsLoaderParams {
-
-        static final int DEFAULT_PAGE_SIZE = 20;
-
-        int page;
-        int pageSize;
-
-        public ComicsLoaderParams(int page) {
-            this(page, DEFAULT_PAGE_SIZE);
-        }
-
-        public ComicsLoaderParams(int page, int pageSize) {
-            this.page = page;
-            this.pageSize = pageSize;
-        }
-    }
-
-    private class ComicsLoaderTask extends AsyncTask<ComicsLoaderParams, Void, Comic[]> {
-
-        private Exception e;
-
-        @Override protected void onPreExecute() {
-            if (mList.getAdapter() == null) {
-                ComicsAdapter adapter = new ComicsAdapter(new Comic[0]);
-                mList.setAdapter(adapter);
-            }
-            ((ComicsAdapter) mList.getAdapter()).setProgressIndicatorVisibility(true);
-        }
-
-        @Override protected Comic[] doInBackground(ComicsLoaderParams... params) {
-            try {
-                List<Comic> result = mMarvelApi.getComics(params[0].page,
-                        params[0].pageSize).data.results;
-                return result.toArray(new Comic[result.size()]);
-            } catch (ComicsFetchingException | IOException e) {
-                this.e = e;
-            }
-            return null;
-        }
-
-        @Override protected void onPostExecute(Comic[] comics) {
+    private Callback<Comics> retrofitCallback = new Callback<Comics>() {
+        @Override public void onResponse(Call<Comics> call, Response<Comics> response) {
             ((ComicsAdapter) mList.getAdapter()).setProgressIndicatorVisibility(false);
-            if (e != null) {
-                e.printStackTrace();
-                Toast.makeText(ComicListActivity.this, e.getMessage(), Toast.LENGTH_SHORT)
-                        .show();
-            } else if (comics != null) {
-                if (comics.length == 0) {
+
+            if (response != null && response.body() != null &&
+                    response.body().data != null &&
+                    response.body().data.results != null) {
+                List<Comic> comics = response.body().data.results;
+                if (comics.size() == 0) {
                     mScrollListener.unblock();
                 } else {
-                    ((ComicsAdapter) mList.getAdapter()).addItems(comics);
+                    ((ComicsAdapter) mList.getAdapter()).addItems(
+                            comics.toArray(new Comic[comics.size()]));
                 }
             }
         }
-    }
+
+        @Override public void onFailure(Call<Comics> call, Throwable t) {
+            ((ComicsAdapter) mList.getAdapter()).setProgressIndicatorVisibility(false);
+            Toast.makeText(ComicListActivity.this, t.getMessage(), Toast.LENGTH_SHORT)
+                    .show();
+        }
+    };
 }

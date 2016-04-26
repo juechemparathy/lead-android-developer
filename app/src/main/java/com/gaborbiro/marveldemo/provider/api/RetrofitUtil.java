@@ -2,6 +2,7 @@ package com.gaborbiro.marveldemo.provider.api;
 
 import android.content.Context;
 import android.os.Environment;
+import android.util.Log;
 
 import com.gaborbiro.marveldemo.App;
 import com.gaborbiro.marveldemo.util.NetUtils;
@@ -12,6 +13,9 @@ import java.io.IOException;
 import okhttp3.Cache;
 import okhttp3.Interceptor;
 import okhttp3.OkHttpClient;
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
 import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
 
@@ -33,6 +37,10 @@ public class RetrofitUtil {
                 .build();
     }
 
+    /**
+     * Forcing retrofit to cache for 1 day, regardless of what the server says the
+     * stale-ness is
+     */
     private static final Interceptor REWRITE_CACHE_CONTROL_INTERCEPTOR =
             new Interceptor() {
 
@@ -53,8 +61,7 @@ public class RetrofitUtil {
 
     /**
      * Creates a unique subdirectory of the designated app cache directory. Tries to use
-     * external but if not mounted,
-     * falls back on internal storage.
+     * external but if not mounted, falls back on internal storage.
      */
     private static File getDiskCacheDir(Context context, String uniqueName) {
         // Check if media is mounted or storage is built-in, if so, try and use
@@ -68,5 +75,44 @@ public class RetrofitUtil {
                         .getPath();
 
         return new File(cachePath + File.separator + uniqueName);
+    }
+
+    public static <T> void enqueueWithRetry(Call<T> call, final Callback<T> callback) {
+        call.enqueue(new CallbackWithRetry<T>(call) {
+            @Override public void onResponse(Call<T> call, Response<T> response) {
+                callback.onResponse(call, response);
+            }
+
+            @Override public void onFailure(Call<T> call, Throwable t) {
+                super.onFailure(call, t);
+                callback.onFailure(call, t);
+            }
+        });
+    }
+
+    public static abstract class CallbackWithRetry<T> implements Callback<T> {
+
+        private static final int TOTAL_RETRIES = 3;
+        private final String TAG = CallbackWithRetry.class.getSimpleName();
+        private final Call<T> call;
+        private int retryCount = 0;
+
+        public CallbackWithRetry(Call<T> call) {
+            this.call = call;
+        }
+
+        @Override public void onFailure(Call<T> call, Throwable t) {
+            Log.e(TAG, t.getLocalizedMessage());
+            if (retryCount++ < TOTAL_RETRIES) {
+                Log.v(TAG,
+                        "Retrying... (" + retryCount + " out of " + TOTAL_RETRIES + ")");
+                retry();
+            }
+        }
+
+        private void retry() {
+            call.clone()
+                    .enqueue(this);
+        }
     }
 }

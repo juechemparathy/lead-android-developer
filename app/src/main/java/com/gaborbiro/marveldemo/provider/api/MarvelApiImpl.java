@@ -11,6 +11,7 @@ import java.io.IOException;
 import javax.inject.Provider;
 
 import retrofit2.Call;
+import retrofit2.Callback;
 import retrofit2.Response;
 
 public class MarvelApiImpl implements MarvelApi {
@@ -31,7 +32,7 @@ public class MarvelApiImpl implements MarvelApi {
     }
 
 
-    @Override public Comics getComics(int page, int pageSize)
+    @Override public void getComics(int page, int pageSize, Callback<Comics> callback)
             throws IOException, ComicsFetchingException {
         int limit = pageSize;
         int offset = page * pageSize;
@@ -43,23 +44,22 @@ public class MarvelApiImpl implements MarvelApi {
                 .url()
                 .toString());
         try {
-            Response<Comics> response = call.execute();
-
-            if (response.isSuccessful() && response.body() != null) {
-                return response.body();
-            } else {
-                String message = response.message();
-
-                if (TextUtils.isEmpty(message)) {
-                    message = response.raw()
-                            .toString();
-                }
-                throw new ComicsFetchingException(message);
-            }
+            RetrofitUtil.enqueueWithRetry(call, callback);
+//            Response<Comics> response = call.execute();
+//
+//            if (response.isSuccessful() && response.body() != null) {
+//                return response.body();
+//            } else {
+//                String message = response.message();
+//
+//                if (TextUtils.isEmpty(message)) {
+//                    message = response.raw()
+//                            .toString();
+//                }
+//                throw new ComicsFetchingException(message);
+//            }
         } catch (RuntimeException e) {
             throw new ComicsFetchingException(e);
-        } catch (IOException e) {
-            throw new ComicsFetchingException("Unable to create request.", e);
         }
     }
 }
