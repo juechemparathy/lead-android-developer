@@ -97,7 +97,6 @@ public class ComicDetailActivity extends AppCompatActivity
         mComic = getIntent().getParcelableExtra(ComicDetailFragment.ARG_ITEM);
 
         loadCoverImage();
-        updateDeleteButton();
 
         if (savedInstanceState == null) {
             Bundle arguments = new Bundle();
@@ -110,40 +109,16 @@ public class ComicDetailActivity extends AppCompatActivity
         }
     }
 
-    private void loadCoverImage() {
-        PicassoHandler handler = new PicassoHandler(mComic);
-        Picasso.Builder builder =
-                new Picasso.Builder(App.getAppContext()).listener(handler);
-        RequestCreator requestCreator;
-        try {
-            String path = mDropboxApi.getCover(mComic.id);
-
-            if (!TextUtils.isEmpty(path)) {
-                builder.downloader(mDropboxDownloader);
-                // The http bit is an ugly hack to make Picasso believe this can be
-                // handled by a NetworkRequestHandler. This way I can use a simple
-                // Downloader instead of needing to write a whole RequestHandler.
-                requestCreator = builder.build()
-                        .load(Uri.parse("http:\\" + path));
-            } else {
-                requestCreator = builder.build()
-                        .load(mComic.getCoverImageUri());
-            }
-        } catch (DbxException e) {
-            e.printStackTrace();
-            requestCreator = builder.build()
-                    .load(mComic.getCoverImageUri());
-        }
-        requestCreator.into(handler);
-    }
-
-    private void updateDeleteButton() {
+    private void updateCoverUI() {
         try {
             mDeleteButton.setVisibility(
                     mDropboxApi.hasCover(mComic.id) ? View.VISIBLE : View.INVISIBLE);
         } catch (DbxException e) {
             e.printStackTrace();
         }
+        EventBus.getDefault()
+                .post(new CoverImageUpdateEvent(
+                        getIntent().getIntExtra(ARG_POSITION, -1)));
     }
 
     private class PicassoHandler implements Target, Picasso.Listener {
@@ -159,8 +134,7 @@ public class ComicDetailActivity extends AppCompatActivity
                 mProgressBar.setVisibility(View.GONE);
                 mActionBarBackdropImage.setImageBitmap(bitmap);
                 applyPalette(bitmap);
-                notifyParentList();
-                updateDeleteButton();
+                updateCoverUI();
             }
         }
 
@@ -186,14 +160,7 @@ public class ComicDetailActivity extends AppCompatActivity
                 message =
                         "The cover has been deleted from dropbox. Resetting the default" +
                                 " cover.";
-                try {
-                    mDropboxApi.removeCover(mComic.id);
-                    loadCoverImage();
-                    updateDeleteButton();
-                    notifyParentList();
-                } catch (DbxException e) {
-                    e.printStackTrace();
-                }
+                deleteCoverImageFromDropbox();
             } else {
                 message = "Error: " + exception.getClass()
                         .getSimpleName();
@@ -262,17 +229,7 @@ public class ComicDetailActivity extends AppCompatActivity
                 e.printStackTrace();
             }
         } else if (v.getId() == R.id.delete) {
-            try {
-                // delete the file in dropbox
-                mDropboxApi.deleteCoverPhoto(mDropboxApi.getCover(mComic.id));
-                // remove the database entry
-                mDropboxApi.removeCover(mComic.id);
-                loadCoverImage();
-                notifyParentList();
-                updateDeleteButton();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+            deleteCoverImageFromDropbox();
         }
     }
 
@@ -285,10 +242,8 @@ public class ComicDetailActivity extends AppCompatActivity
                         mActionBarBackdropImage.getHeight());
                 bitmap = BitmapUtils.flip(bitmap);
                 mActionBarBackdropImage.setImageBitmap(bitmap);
-                saveImageToDropbox(bitmap);
+                saveCoverImageToDropbox(bitmap);
                 new DeleteTempCoverTask().execute();
-                notifyParentList();
-                updateDeleteButton();
             }
         }
     }
@@ -302,18 +257,58 @@ public class ComicDetailActivity extends AppCompatActivity
         }
     }
 
-    private void notifyParentList() {
-        EventBus.getDefault()
-                .post(new CoverImageUpdateEvent(
-                        getIntent().getIntExtra(ARG_POSITION, -1)));
-    }
-
-    private void saveImageToDropbox(Bitmap bitmap) {
+    private void saveCoverImageToDropbox(Bitmap bitmap) {
         try {
+            // push the file to dropbox
             String name = mDropboxApi.uploadCoverPhoto(bitmap);
+            // update the database entry
             mDropboxApi.setCover(mComic.id, name);
         } catch (IOException e) {
             e.printStackTrace();
         }
+        updateCoverUI();
+    }
+
+    private void deleteCoverImageFromDropbox() {
+        try {
+            // delete the file in dropbox
+            mDropboxApi.deleteCoverPhoto(mDropboxApi.getCover(mComic.id));
+            // remove the database entry
+            mDropboxApi.removeCover(mComic.id);
+            loadCoverImage();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Load the cover image from dropbox if awailable, use the marvel photo otherwise
+     */
+    private void loadCoverImage() {
+        PicassoHandler handler = new PicassoHandler(mComic);
+        Picasso.Builder builder =
+                new Picasso.Builder(App.getAppContext()).listener(handler);
+        RequestCreator requestCreator;
+        try {
+            String path = mDropboxApi.getCover(mComic.id);
+
+            if (!TextUtils.isEmpty(path)) {
+                builder.downloader(mDropboxDownloader);
+                // The http bit is an ugly hack to make Picasso believe this can be
+                // handled by a NetworkRequestHandler. This way I can use a simple
+                // Downloader instead of needing to write a whole RequestHandler.
+                requestCreator = builder.build()
+                        .load(Uri.parse("http:\\" + path));
+            } else {
+                requestCreator = builder.build()
+                        .load(mComic.getCoverImageUri());
+            }
+        } catch (DbxException e) {
+            e.printStackTrace();
+            requestCreator = builder.build()
+                    .load(mComic.getCoverImageUri());
+        }
+        requestCreator.into(handler);
+        updateCoverUI();
     }
 }
