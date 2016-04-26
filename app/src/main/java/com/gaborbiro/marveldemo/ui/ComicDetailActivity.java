@@ -29,6 +29,8 @@ import com.squareup.picasso.Picasso;
 import com.squareup.picasso.RequestCreator;
 import com.squareup.picasso.Target;
 
+import org.greenrobot.eventbus.EventBus;
+
 import java.io.File;
 import java.io.IOException;
 
@@ -44,6 +46,12 @@ public class ComicDetailActivity extends AppCompatActivity
         implements View.OnClickListener {
 
     private static final int REQUEST_IMAGE_CAPTURE = 1;
+
+    /**
+     * Bundle argument representing the list-position of the Comic represented by this
+     * ComicDetailActivity
+     */
+    public static final String ARG_POSITION = "position";
 
     /**
      * The cache key of the thumbnail bitmap of the selected comic. Used to display a
@@ -86,6 +94,21 @@ public class ComicDetailActivity extends AppCompatActivity
 
         mComic = getIntent().getParcelableExtra(ComicDetailFragment.ARG_ITEM);
 
+        loadCoverImage();
+
+        if (savedInstanceState == null) {
+            Bundle arguments = new Bundle();
+            arguments.putParcelable(ComicDetailFragment.ARG_ITEM, mComic);
+            ComicDetailFragment fragment = new ComicDetailFragment();
+            fragment.setArguments(arguments);
+            getSupportFragmentManager().beginTransaction()
+                    .add(R.id.comic_detail_container, fragment)
+                    .commit();
+        }
+        postponeEnterTransition();
+    }
+
+    private void loadCoverImage() {
         Picasso.Builder builder = new Picasso.Builder(App.getAppContext());
         RequestCreator requestCreator;
         try {
@@ -108,44 +131,6 @@ public class ComicDetailActivity extends AppCompatActivity
                     .load(mComic.getCoverImageUri());
         }
         requestCreator.into(mBitmapLoadedHandler);
-
-        // savedInstanceState is non-null when there is fragment state
-        // saved from previous configurations of this activity
-        // (e.g. when rotating the screen from portrait to landscape).
-        // In this case, the fragment will automatically be re-added
-        // to its container so we don't need to manually add it.
-        // For more information, see the Fragments API guide at:
-        //
-        // http://developer.android.com/guide/components/fragments.html
-        //
-        if (savedInstanceState == null) {
-            // Create the detail fragment and add it to the activity
-            // using a fragment transaction.
-
-            Bundle arguments = new Bundle();
-            arguments.putParcelable(ComicDetailFragment.ARG_ITEM, mComic);
-            ComicDetailFragment fragment = new ComicDetailFragment();
-            fragment.setArguments(arguments);
-            getSupportFragmentManager().beginTransaction()
-                    .add(R.id.comic_detail_container, fragment)
-                    .commit();
-        }
-        //        postponeEnterTransition();
-    }
-
-    @Override public void onBackPressed() {
-        if (!getSupportFragmentManager().popBackStackImmediate()) {
-            finish();
-        }
-    }
-
-    @Override public boolean onOptionsItemSelected(MenuItem item) {
-        int id = item.getItemId();
-        if (id == android.R.id.home) {
-            finish();
-            return true;
-        }
-        return super.onOptionsItemSelected(item);
     }
 
     private Target mBitmapLoadedHandler = new Target() {
@@ -154,6 +139,9 @@ public class ComicDetailActivity extends AppCompatActivity
             if (mActionBarBackdropImage != null) {
                 mActionBarBackdropImage.setImageBitmap(bitmap);
                 applyPalette(bitmap);
+                EventBus.getDefault()
+                        .post(new CoverImageUpdateEvent(
+                                getIntent().getIntExtra(ARG_POSITION, -1)));
             }
             Log.d("test", "cover loaded");
         }
@@ -185,6 +173,21 @@ public class ComicDetailActivity extends AppCompatActivity
                 });
     }
 
+    @Override public void onBackPressed() {
+        if (!getSupportFragmentManager().popBackStackImmediate()) {
+            finish();
+        }
+    }
+
+    @Override public boolean onOptionsItemSelected(MenuItem item) {
+        int id = item.getItemId();
+        if (id == android.R.id.home) {
+            finish();
+            return true;
+        }
+        return super.onOptionsItemSelected(item);
+    }
+
     @Override public void onClick(View v) {
         if (v.getId() == R.id.camera) {
             try {
@@ -207,6 +210,9 @@ public class ComicDetailActivity extends AppCompatActivity
                         mActionBarBackdropImage.getHeight());
                 mActionBarBackdropImage.setImageBitmap(bitmap);
                 saveImageToDropbox();
+                EventBus.getDefault()
+                        .post(new CoverImageUpdateEvent(
+                                getIntent().getIntExtra(ARG_POSITION, -1)));
             }
         }
     }

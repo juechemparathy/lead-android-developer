@@ -9,10 +9,10 @@ import javax.annotation.Generated;
 
     private static final String FOC_DATE_TYPE = "focDate";
 
-    public int id;
-    public String title;
-    public String description;
-    public Image thumbnail;
+    public final int id;
+    public final String title;
+    public final String description;
+    public final Image thumbnail;
 
     Comic(Parcel in) {
         id = in.readInt();
@@ -44,7 +44,7 @@ import javax.annotation.Generated;
                 }
             };
 
-    public String getThumbnailImageUri() {
+    public String getThumbImageUri() {
         if (thumbnail == null) {
             return null;
         }

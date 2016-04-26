@@ -34,6 +34,7 @@ public class DropboxApiImpl implements DropboxApi {
 
     @Override public String getCover(int comicId) throws DbxException {
         DbxDatastore datastore = mDatastoreProvider.get();
+        datastore.sync();
         DbxTable table = datastore.getTable("user-settings");
         DbxRecord map = table.getOrInsert("cover-map");
         if (map.hasField(Integer.toString(comicId))) {
@@ -41,14 +42,6 @@ public class DropboxApiImpl implements DropboxApi {
         } else {
             return null;
         }
-    }
-
-    @Override public void removeCover(int comicId) throws DbxException {
-        DbxDatastore datastore = mDatastoreProvider.get();
-        DbxTable table = datastore.getTable("user-settings");
-        DbxRecord map = table.getOrInsert("cover-map");
-        map.deleteField(Integer.toString(comicId));
-        datastore.sync();
     }
 
     @Override public void uploadFile(String fileName) {

@@ -34,8 +34,7 @@ public class DropboxDownloader implements Downloader {
             file = mFileSystemProvider.get()
                     .open(dbPath);
             fis = file.getReadStream();
-            bitmap = BitmapUtils.decodeStream(fis, BitmapUtils.dpToPx(300),
-                    BitmapUtils.dpToPx(300));
+            bitmap = BitmapUtils.decodeStream(fis, 10);
         } catch (Exception e) {
             e.printStackTrace();
         } finally {

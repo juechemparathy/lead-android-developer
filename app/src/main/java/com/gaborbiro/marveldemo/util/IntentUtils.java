@@ -19,7 +19,7 @@ public class IntentUtils {
         if (takePictureIntent.resolveActivity(App.getAppContext().getPackageManager()) != null) {
             takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT, Uri.fromFile(targetFile));
             takePictureIntent.putExtra("outputX", BitmapUtils.dpToPx(300));
-            takePictureIntent.putExtra("outputY", BitmapUtils.dpToPx(200));
+            takePictureIntent.putExtra("outputY", BitmapUtils.dpToPx(300));
             return takePictureIntent;
         }
         return null;

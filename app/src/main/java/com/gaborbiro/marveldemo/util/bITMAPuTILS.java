@@ -51,7 +51,7 @@ public class BitmapUtils {
         return flip(bm);
     }
 
-    public static Bitmap decodeStream(InputStream in, int targetWidthPx, int targetHeightPx) {
+    public static Bitmap decodeStream(InputStream in, int targetMaxSizeDp) {
         try {
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             byte[] buffer = new byte[1024];
@@ -68,14 +68,15 @@ public class BitmapUtils {
             BitmapFactory.decodeStream(is1, null, o);
 
             int scale = 1;
-            if (o.outHeight > targetHeightPx || o.outWidth > targetWidthPx) {
-                scale = (int) Math.pow(2, (int) Math.round(Math.log(
-                        targetWidthPx / (double) Math.max(o.outHeight, o.outWidth)) /
-                        Math.log(0.5)));
+            int maxSizePx = dpToPx(targetMaxSizeDp);
+            if (o.outHeight > maxSizePx || o.outWidth > maxSizePx) {
+                scale = (int) Math.pow(2, (int) Math.round(
+                        Math.log(maxSizePx / (double) Math.max(o.outHeight, o.outWidth)) /
+                                Math.log(0.5)));
             }
 
             BitmapFactory.Options o2 = new BitmapFactory.Options();
-            o2.inSampleSize = scale;
+            o2.inSampleSize = 6;
             return flip(BitmapFactory.decodeStream(is2, null, o2));
         } catch (Exception e) {
             return null;

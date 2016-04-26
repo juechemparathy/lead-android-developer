@@ -7,8 +7,8 @@ import javax.annotation.Generated;
 
 @Generated("org.jsonschema2pojo") public class Image implements Parcelable {
 
-    public String path;
-    public String extension;
+    public final String path;
+    public final String extension;
 
     public Image(Parcel in) {
         path = in.readString();

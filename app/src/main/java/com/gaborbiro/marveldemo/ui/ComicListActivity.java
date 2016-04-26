@@ -1,6 +1,7 @@
 package com.gaborbiro.marveldemo.ui;
 
 import android.content.Intent;
+import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Parcel;
@@ -21,12 +22,19 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.dropbox.sync.android.DbxAccountManager;
+import com.dropbox.sync.android.DbxException;
 import com.gaborbiro.marveldemo.App;
 import com.gaborbiro.marveldemo.R;
 import com.gaborbiro.marveldemo.provider.api.ComicsFetchingException;
 import com.gaborbiro.marveldemo.provider.api.MarvelApi;
 import com.gaborbiro.marveldemo.provider.api.model.Comic;
+import com.gaborbiro.marveldemo.provider.dropbox.DropboxApi;
+import com.gaborbiro.marveldemo.provider.dropbox.DropboxDownloader;
 import com.squareup.picasso.Picasso;
+import com.squareup.picasso.RequestCreator;
+
+import org.greenrobot.eventbus.EventBus;
+import org.greenrobot.eventbus.Subscribe;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -58,6 +66,8 @@ public class ComicListActivity extends AppCompatActivity {
 
     @Inject public MarvelApi mMarvelApi;
     @Inject public DbxAccountManager mAccountManager;
+    @Inject public DropboxApi mDropboxApi;
+    @Inject public DropboxDownloader mDropboxDownloader;
 
     private RecyclerView mList;
     private EndlessRecyclerViewScrollListener mScrollListener;
@@ -65,10 +75,10 @@ public class ComicListActivity extends AppCompatActivity {
     @Override protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_comic_list);
-        ((App) getApplication()).getAppComponent()
-                .inject(this);
         ((App) getApplication()).getDropboxApiComponent()
                 .inject(this);
+        EventBus.getDefault()
+                .register(this);
 
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
@@ -201,6 +211,41 @@ public class ComicListActivity extends AppCompatActivity {
         }
     }
 
+    @Subscribe
+    public void onEvent(CoverImageUpdateEvent event) {
+        if (event.mPosition > -1 && event.mPosition < mList.getAdapter()
+                .getItemCount()) {
+            mList.getAdapter()
+                    .notifyItemChanged(event.mPosition);
+        }
+    }
+
+    private void loadThumbImage(ImageView target, Comic comic, int placeholderResId) {
+        Picasso.Builder builder = new Picasso.Builder(App.getAppContext());
+        RequestCreator requestCreator;
+        try {
+            String path = mDropboxApi.getCover(comic.id);
+
+            if (!TextUtils.isEmpty(path)) {
+                builder.downloader(mDropboxDownloader);
+                // The http bit is an ugly hack to make Picasso believe this can be
+                // handled by a NetworkRequestHandler. This way I can use a simple
+                // Downloader instead of needing to write a whole RequestHandler.
+                requestCreator = builder.build()
+                        .load(Uri.parse("http:\\" + path));
+            } else {
+                requestCreator = builder.build()
+                        .load(comic.getThumbImageUri());
+            }
+        } catch (DbxException e) {
+            e.printStackTrace();
+            requestCreator = builder.build()
+                    .load(comic.getThumbImageUri());
+        }
+        requestCreator.placeholder(placeholderResId)
+                .into(target);
+    }
+
     public class ComicsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
         private static final int VIEW_TYPE_COMIC = 1;
@@ -259,27 +304,8 @@ public class ComicListActivity extends AppCompatActivity {
             if (position < mComics.length) {
                 final ComicViewHolder comicViewHolder = (ComicViewHolder) holder;
                 Comic comic = mComics[position];
-                String thumbPath = comic.getThumbnailImageUri();
-
-                if (!TextUtils.isEmpty(thumbPath)) {
-                    // Caching:
-                    // - LRU memory cache of 15% the available application RAM
-                    // - Disk cache of 2% storage space up to 50MB but no less than 5MB.
-                    Picasso.with(App.getAppContext())
-                            .load(thumbPath)
-                            .placeholder(R.drawable.ic_book_white_48dp)
-                            .into(comicViewHolder.mThumbView);
-                } else {
-                    comicViewHolder.mThumbView.setImageResource(
-                            R.drawable.ic_book_white_48dp);
-                }
-                // preload cover
-                String coverPath = comic.getCoverImageUri();
-
-                if (!TextUtils.isEmpty(coverPath)) {
-                    Picasso.with(App.getAppContext())
-                            .load(coverPath);
-                }
+                loadThumbImage(comicViewHolder.mThumbView, comic,
+                        R.drawable.ic_book_white_48dp);
 
                 if (!TextUtils.isEmpty(comic.title)) {
                     comicViewHolder.mTitleView.setText(comic.title);
@@ -310,7 +336,8 @@ public class ComicListActivity extends AppCompatActivity {
                                         .commit();
                             }
                         } else {
-                            startDetailActivity(comic, comicViewHolder.mThumbView);
+                            startDetailActivity(comic, position,
+                                    comicViewHolder.mThumbView);
                         }
                     }
                 });
@@ -323,11 +350,12 @@ public class ComicListActivity extends AppCompatActivity {
             }
         }
 
-        private void startDetailActivity(Comic comic, ImageView thumbView) {
+        private void startDetailActivity(Comic comic, int position, ImageView thumbView) {
             Intent intent = new Intent(ComicListActivity.this, ComicDetailActivity.class);
             intent.putExtra(ComicDetailFragment.ARG_ITEM, comic);
             intent.putExtra(ComicDetailActivity.ARG_SELECTED_THUMB_CACHE_KEY,
                     KEY_CACHE_SELECTED_THUMB);
+            intent.putExtra(ComicDetailActivity.ARG_POSITION, position);
 
             if (android.os.Build.VERSION.SDK_INT >=
                     android.os.Build.VERSION_CODES.ICE_CREAM_SANDWICH_MR1) {
