@@ -5,6 +5,7 @@ import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.design.widget.CollapsingToolbarLayout;
 import android.support.v7.app.ActionBar;
@@ -262,7 +263,9 @@ public class ComicDetailActivity extends AppCompatActivity
             }
         } else if (v.getId() == R.id.delete) {
             try {
+                // delete the file in dropbox
                 mDropboxApi.deleteCoverPhoto(mDropboxApi.getCover(mComic.id));
+                // remove the database entry
                 mDropboxApi.removeCover(mComic.id);
                 loadCoverImage();
                 notifyParentList();
@@ -283,11 +286,19 @@ public class ComicDetailActivity extends AppCompatActivity
                 bitmap = BitmapUtils.flip(bitmap);
                 mActionBarBackdropImage.setImageBitmap(bitmap);
                 saveImageToDropbox(bitmap);
-                new File(mCurrentPhotoPath).delete();
-                mCurrentPhotoPath = null;
+                new DeleteTempCoverTask().execute();
                 notifyParentList();
                 updateDeleteButton();
             }
+        }
+    }
+
+    private class DeleteTempCoverTask extends AsyncTask<Void, Void, Void> {
+
+        @Override protected Void doInBackground(Void... params) {
+            new File(mCurrentPhotoPath).delete();
+            mCurrentPhotoPath = null;
+            return null;
         }
     }
 
