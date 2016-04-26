@@ -45,9 +45,10 @@
                         android:id="@+id/camera"
                         android:layout_width="@dimen/camera_icon_width"
                         android:layout_height="@dimen/camera_icon_height"
-                        android:layout_margin="@dimen/standard_margin"
+                        android:layout_marginRight="@dimen/standard_margin"
+                        android:layout_marginBottom="@dimen/double_margin"
                         android:src="@drawable/ic_photo_camera_black_24dp"
-                        android:background="?attr/selectableItemBackground"
+                        android:background="#33111111"
                         android:clickable="true"
                         android:layout_alignParentRight="true"
                         android:layout_alignParentBottom="true"/>

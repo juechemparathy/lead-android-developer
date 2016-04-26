@@ -1,8 +1,6 @@
 package com.gaborbiro.marveldemo.ui;
 
 import android.content.Intent;
-import android.graphics.Bitmap;
-import android.graphics.drawable.BitmapDrawable;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Parcel;
@@ -22,12 +20,12 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.dropbox.sync.android.DbxAccountManager;
 import com.gaborbiro.marveldemo.App;
 import com.gaborbiro.marveldemo.R;
 import com.gaborbiro.marveldemo.provider.api.ComicsFetchingException;
 import com.gaborbiro.marveldemo.provider.api.MarvelApi;
 import com.gaborbiro.marveldemo.provider.api.model.Comic;
-import com.gaborbiro.marveldemo.util.BitmapCache;
 import com.squareup.picasso.Picasso;
 
 import java.io.IOException;
@@ -44,10 +42,11 @@ import javax.inject.Inject;
  * item details. On tablets, the activity presents the list of items and
  * item details side-by-side using two vertical panes.
  */
-public class ComicListActivity extends AppCompatActivity
-        implements ComicDetailFragment.Listener {
+public class ComicListActivity extends AppCompatActivity {
 
     public static final String KEY_CACHE_SELECTED_THUMB = "selected_thumb";
+
+    private static final int REQUEST_LINK_TO_DBX = 1;
 
     /**
      * Whether or not the activity is in two-pane mode, i.e. running on a tablet
@@ -57,16 +56,8 @@ public class ComicListActivity extends AppCompatActivity
 
     private int mSelectedPosition = -1;
 
-    /**
-     * This is a hack to solve the problem of flicker when transitioning from the list
-     * cover image to the detail screen cover image. Normally picasso is used for
-     * caching but I was forced to do an exception here.
-     * Used only to pass the thumbnail of the selected comic to the details screen. <br>
-     * Only 1 bitmap is stored at a time.
-     */
-    private BitmapCache mBitmapCache;
-
     @Inject public MarvelApi mMarvelApi;
+    @Inject public DbxAccountManager mAccountManager;
 
     private RecyclerView mList;
     private EndlessRecyclerViewScrollListener mScrollListener;
@@ -74,10 +65,10 @@ public class ComicListActivity extends AppCompatActivity
     @Override protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_comic_list);
-
         ((App) getApplication()).getAppComponent()
                 .inject(this);
-
+        ((App) getApplication()).getDropboxApiComponent()
+                .inject(this);
 
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
@@ -105,6 +96,16 @@ public class ComicListActivity extends AppCompatActivity
             // activity should be in two-pane mode.
             mTwoPane = true;
         }
+
+
+        if (!mAccountManager.hasLinkedAccount()) {
+            mAccountManager.startLink(this, REQUEST_LINK_TO_DBX);
+        } else {
+            setupUI(savedInstanceState);
+        }
+    }
+
+    private void setupUI(Bundle savedInstanceState) {
         if (savedInstanceState == null) {
             new ComicsLoaderTask().execute(new ComicsLoaderParams(0));
         } else {
@@ -120,12 +121,18 @@ public class ComicListActivity extends AppCompatActivity
                 new ComicsLoaderTask().execute(new ComicsLoaderParams(0));
             }
         }
-        mBitmapCache = BitmapCache.attach(this);
     }
 
-    @Override protected void onDestroy() {
-        super.onDestroy();
-        mBitmapCache.clearCache();
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        if (requestCode == REQUEST_LINK_TO_DBX) {
+            if (resultCode == RESULT_OK) {
+                setupUI(null);
+            } else {
+                Toast.makeText(this, "Error linking to dropbox", Toast.LENGTH_SHORT)
+                        .show();
+            }
+        }
     }
 
     @Override protected void onSaveInstanceState(Bundle outState) {
@@ -141,10 +148,6 @@ public class ComicListActivity extends AppCompatActivity
         }
         new SavedState(firstVisibleItemPosition, comics, mSelectedPosition).save(
                 outState);
-    }
-
-    @Override public void onActionBarBackdropImageRequested(String url) {
-        // Nothing to do. This is only for portrait mode
     }
 
     private static class SavedState implements Parcelable {
@@ -262,7 +265,7 @@ public class ComicListActivity extends AppCompatActivity
                     // Caching:
                     // - LRU memory cache of 15% the available application RAM
                     // - Disk cache of 2% storage space up to 50MB but no less than 5MB.
-                    Picasso.with(ComicListActivity.this)
+                    Picasso.with(App.getAppContext())
                             .load(thumbPath)
                             .placeholder(R.drawable.ic_book_white_48dp)
                             .into(comicViewHolder.mThumbView);
@@ -274,7 +277,7 @@ public class ComicListActivity extends AppCompatActivity
                 String coverPath = comic.getCoverImageUri();
 
                 if (!TextUtils.isEmpty(coverPath)) {
-                    Picasso.with(ComicListActivity.this)
+                    Picasso.with(App.getAppContext())
                             .load(coverPath);
                 }
 
@@ -288,8 +291,6 @@ public class ComicListActivity extends AppCompatActivity
                 comicViewHolder.mView.setOnClickListener(new View.OnClickListener() {
 
                     @Override public void onClick(View v) {
-                        saveSelectedThumb(comicViewHolder.mThumbView);
-
                         Comic comic = comicViewHolder.mItem;
                         if (mTwoPane) {
                             if (position != mSelectedPosition) {
@@ -319,16 +320,6 @@ public class ComicListActivity extends AppCompatActivity
                 ProgressViewHolder progressViewHolder = (ProgressViewHolder) holder;
                 progressViewHolder.mProgressBar.setVisibility(
                         mProgressIndicatorVisible ? View.VISIBLE : View.GONE);
-            }
-        }
-
-        private void saveSelectedThumb(ImageView thumbView) {
-            if (thumbView.getDrawable() instanceof BitmapDrawable) {
-                BitmapDrawable bitmapDrawable = (BitmapDrawable) thumbView.getDrawable();
-                if (bitmapDrawable.getBitmap() != null) {
-                    Bitmap thumb = bitmapDrawable.getBitmap();
-                    mBitmapCache.saveBitmap(KEY_CACHE_SELECTED_THUMB, thumb);
-                }
             }
         }
 

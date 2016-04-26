@@ -1,7 +1,7 @@
 package com.gaborbiro.marveldemo.ui;
 
-import android.app.Activity;
 import android.os.Bundle;
+import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
 import android.text.Html;
 import android.view.LayoutInflater;
@@ -20,25 +20,13 @@ import com.gaborbiro.marveldemo.provider.api.model.Comic;
  */
 public class ComicDetailFragment extends Fragment {
 
-    public interface Listener {
-
-        /**
-         * BookDetailFragment is requesting the parent activity to display the book
-         * cover image. This should only be
-         * implemented by Activities with large enough App Toolbar
-         *
-         * @param url of the image
-         */
-        void onActionBarBackdropImageRequested(String url);
-    }
-
     /**
      * The fragment argument representing the item ID that this fragment
      * represents.
      */
     public static final String ARG_ITEM = "item";
 
-    private Listener mListener;
+    private View mRootView;
 
     private Comic mComic;
 
@@ -49,18 +37,14 @@ public class ComicDetailFragment extends Fragment {
     public ComicDetailFragment() {
     }
 
-    @Override public void onAttach(Activity activity) {
-        super.onAttach(activity);
-        try {
-            mListener = (Listener) activity;
-        } catch (ClassCastException e) {
-            throw new ClassCastException(
-                    activity.toString() + " must implement " + Listener.class.toString());
-        }
+    @Override public View onCreateView(LayoutInflater inflater, ViewGroup container,
+            Bundle savedInstanceState) {
+        mRootView = inflater.inflate(R.layout.comic_detail, container, false);
+        return mRootView;
     }
 
-    @Override public void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
+    @Override public void onViewCreated(View view, @Nullable Bundle savedInstanceState) {
+        super.onViewCreated(view, savedInstanceState);
 
         if (getArguments().containsKey(ARG_ITEM)) {
             // Load the dummy content specified by the fragment
@@ -69,21 +53,11 @@ public class ComicDetailFragment extends Fragment {
             mComic = getArguments().getParcelable(ARG_ITEM);
 
             if (mComic != null) {
-                mListener.onActionBarBackdropImageRequested(mComic.getCoverImageUri());
+                String description = mComic.title + " (" + mComic.id + ") " + "<p>" +
+                        (mComic.description != null ? mComic.description : "");
+                ((TextView) mRootView.findViewById(R.id.comic_detail)).setText(
+                        Html.fromHtml(description));
             }
         }
-    }
-
-    @Override public View onCreateView(LayoutInflater inflater, ViewGroup container,
-            Bundle savedInstanceState) {
-        View rootView = inflater.inflate(R.layout.comic_detail, container, false);
-
-        if (mComic != null) {
-            String description = mComic.title + "<p>" +
-                    (mComic.description != null ? mComic.description : "");
-            ((TextView) rootView.findViewById(R.id.comic_detail)).setText(
-                    Html.fromHtml(description));
-        }
-        return rootView;
     }
 }

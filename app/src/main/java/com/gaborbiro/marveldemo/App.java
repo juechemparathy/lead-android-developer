@@ -4,10 +4,12 @@ import android.app.Application;
 import android.content.Context;
 
 import com.gaborbiro.marveldemo.provider.api.MarvelApiModule;
+import com.gaborbiro.marveldemo.provider.dropbox.DropboxApiModule;
 
 public class App extends Application {
 
-    private com.gaborbiro.marveldemo.AppComponent mAppComponent;
+    private MarvelApiComponent mMarvelApiComponent;
+    private DropboxApiComponent mDropboxApiComponent;
 
     private static Context sAppContext;
 
@@ -16,8 +18,11 @@ public class App extends Application {
         sAppContext = this;
 
 		/* DaggerAppComponent */
-        mAppComponent = DaggerAppComponent.builder()
+        mMarvelApiComponent = DaggerMarvelApiComponent.builder()
                 .marvelApiModule(new MarvelApiModule())
+                .build();
+        mDropboxApiComponent = DaggerDropboxApiComponent.builder()
+                .dropboxApiModule(new DropboxApiModule())
                 .build();
     }
 
@@ -25,7 +30,11 @@ public class App extends Application {
         return sAppContext;
     }
 
-    public AppComponent getAppComponent() {
-        return mAppComponent;
+    public MarvelApiComponent getAppComponent() {
+        return mMarvelApiComponent;
+    }
+
+    public DropboxApiComponent getDropboxApiComponent() {
+        return mDropboxApiComponent;
     }
 }

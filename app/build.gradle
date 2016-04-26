@@ -35,9 +35,6 @@ dependencies {
     compile "com.android.support:cardview-v7:${ANDROID_VERSION}"
     compile "com.android.support:design:${ANDROID_VERSION}"
 
-    // Misc
-    compile 'com.jakewharton:disklrucache:2.0.2'
-
     // Retrofit
     provided 'org.glassfish:javax.annotation:10.0-b28'
     compile 'com.google.code.gson:gson:2.6.1'
