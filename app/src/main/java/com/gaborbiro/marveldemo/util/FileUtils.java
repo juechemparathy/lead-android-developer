@@ -9,9 +9,14 @@ import java.util.Date;
 
 public class FileUtils {
 
-    public static File createTempJpeg(String postfix) throws IOException {
+    public static String getNewCoverPhotoName() {
         String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
-        String imageFileName = "JPEG_" + timeStamp + "_";
+        return "JPEG_" + timeStamp + ".jpg";
+    }
+
+    public static File createTempJpeg() throws IOException {
+        String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
+        String imageFileName = "JPEG_" + timeStamp;
         File storageDir = Environment.getExternalStoragePublicDirectory(
                 Environment.DIRECTORY_PICTURES);
         File marvelStorageDir = new File(storageDir, "Marvel");
@@ -19,7 +24,7 @@ public class FileUtils {
         if (!marvelStorageDir.exists() || !marvelStorageDir.isDirectory()) {
             marvelStorageDir.mkdir();
         }
-        File image = File.createTempFile(imageFileName, "_" + postfix + ".jpg", marvelStorageDir);
+        File image = File.createTempFile(imageFileName, ".jpg", marvelStorageDir);
         return image;
     }
 }

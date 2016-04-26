@@ -1,5 +1,7 @@
 package com.gaborbiro.marveldemo.provider.dropbox;
 
+import android.graphics.Bitmap;
+
 import com.dropbox.sync.android.DbxException;
 
 public interface DropboxApi {
@@ -8,5 +10,5 @@ public interface DropboxApi {
     boolean hasCover(int comicId) throws DbxException;
     void removeCover(int comicId) throws DbxException;
 
-    void uploadFile(String fileName);
+    String uploadCoverPhoto(Bitmap bitmap);
 }

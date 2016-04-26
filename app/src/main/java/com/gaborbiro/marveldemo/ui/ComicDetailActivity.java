@@ -110,7 +110,7 @@ public class ComicDetailActivity extends AppCompatActivity
     }
 
     private void loadCoverImage() {
-        BitmapLoadedHandler handler = new BitmapLoadedHandler(mComic);
+        PicassoHandler handler = new PicassoHandler(mComic);
         Picasso.Builder builder =
                 new Picasso.Builder(App.getAppContext()).listener(handler);
         RequestCreator requestCreator;
@@ -145,11 +145,11 @@ public class ComicDetailActivity extends AppCompatActivity
         }
     }
 
-    private class BitmapLoadedHandler implements Target, Picasso.Listener {
+    private class PicassoHandler implements Target, Picasso.Listener {
 
         private Comic mComic;
 
-        public BitmapLoadedHandler(Comic mComic) {
+        public PicassoHandler(Comic mComic) {
             this.mComic = mComic;
         }
 
@@ -247,10 +247,16 @@ public class ComicDetailActivity extends AppCompatActivity
     @Override public void onClick(View v) {
         if (v.getId() == R.id.camera) {
             try {
-                File targetFile = FileUtils.createTempJpeg(Integer.toString(mComic.id));
+                File targetFile = FileUtils.createTempJpeg();
                 mCurrentPhotoPath = targetFile.getAbsolutePath();
                 Intent i = IntentUtils.generateTakePictureIntent(targetFile);
-                startActivityForResult(i, REQUEST_IMAGE_CAPTURE);
+                if (i != null) {
+                    startActivityForResult(i, REQUEST_IMAGE_CAPTURE);
+                } else {
+                    Toast.makeText(ComicDetailActivity.this, "No camera app detected",
+                            Toast.LENGTH_SHORT)
+                            .show();
+                }
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -273,8 +279,11 @@ public class ComicDetailActivity extends AppCompatActivity
                 Bitmap bitmap = BitmapUtils.getBitmapFromFile(mCurrentPhotoPath,
                         mActionBarBackdropImage.getWidth(),
                         mActionBarBackdropImage.getHeight());
+                bitmap = BitmapUtils.flip(bitmap);
                 mActionBarBackdropImage.setImageBitmap(bitmap);
-                saveImageToDropbox();
+                saveImageToDropbox(bitmap);
+                new File(mCurrentPhotoPath).delete();
+                mCurrentPhotoPath = null;
                 notifyParentList();
                 updateDeleteButton();
             }
@@ -287,10 +296,10 @@ public class ComicDetailActivity extends AppCompatActivity
                         getIntent().getIntExtra(ARG_POSITION, -1)));
     }
 
-    private void saveImageToDropbox() {
+    private void saveImageToDropbox(Bitmap bitmap) {
         try {
-            mDropboxApi.uploadFile(mCurrentPhotoPath);
-            mDropboxApi.setCover(mComic.id, new File(mCurrentPhotoPath).getName());
+            String name = mDropboxApi.uploadCoverPhoto(bitmap);
+            mDropboxApi.setCover(mComic.id, name);
         } catch (IOException e) {
             e.printStackTrace();
         }

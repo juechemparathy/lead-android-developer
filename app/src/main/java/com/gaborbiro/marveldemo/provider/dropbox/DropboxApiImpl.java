@@ -1,5 +1,7 @@
 package com.gaborbiro.marveldemo.provider.dropbox;
 
+import android.graphics.Bitmap;
+
 import com.dropbox.sync.android.DbxDatastore;
 import com.dropbox.sync.android.DbxException;
 import com.dropbox.sync.android.DbxFile;
@@ -7,9 +9,10 @@ import com.dropbox.sync.android.DbxFileSystem;
 import com.dropbox.sync.android.DbxPath;
 import com.dropbox.sync.android.DbxRecord;
 import com.dropbox.sync.android.DbxTable;
+import com.gaborbiro.marveldemo.util.FileUtils;
 
-import java.io.File;
 import java.io.IOException;
+import java.io.OutputStream;
 
 import javax.inject.Provider;
 
@@ -60,21 +63,26 @@ public class DropboxApiImpl implements DropboxApi {
         datastore.sync();
     }
 
-    @Override public void uploadFile(String fileName) {
+    @Override public String uploadCoverPhoto(Bitmap bitmap) {
         try {
+            String fileName = FileUtils.getNewCoverPhotoName();
             DbxFileSystem fileSystem = mFileSystemProvider.get();
-            File photoFile = new File(fileName);
             DbxPath dbPath =
-                    new DbxPath(DbxPath.ROOT.getChild(DropboxUtils.COVER_BACKUP_FOLDER), photoFile.getName());
+                    new DbxPath(DbxPath.ROOT.getChild(DropboxUtils.COVER_BACKUP_FOLDER),
+                            fileName);
 
             DbxFile testFile = fileSystem.create(dbPath);
+            OutputStream out = testFile.getWriteStream();
             try {
-                testFile.writeFromExistingFile(photoFile, false);
+                bitmap.compress(Bitmap.CompressFormat.JPEG, 100, out);
             } finally {
+                out.close();
                 testFile.close();
             }
+            return fileName;
         } catch (IOException e) {
             e.printStackTrace();
         }
+        return null;
     }
 }

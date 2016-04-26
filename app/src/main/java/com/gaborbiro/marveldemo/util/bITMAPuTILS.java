@@ -24,31 +24,14 @@ public class BitmapUtils {
         int photoH = bmOptions.outHeight;
 
         // Determine how much to scale down the image
-        int scaleFactor = Math.min(photoW / idealWidth, photoH / idealHeight);
+        int scaleFactor = Math.max(photoW / idealWidth, photoH / idealHeight);
 
         // Decode the image file into a Bitmap sized to fill the View
         bmOptions.inJustDecodeBounds = false;
         bmOptions.inSampleSize = scaleFactor;
         bmOptions.inPurgeable = true;
 
-        return flip(BitmapFactory.decodeFile(path, bmOptions));
-    }
-
-    public static Bitmap getBitmapFromStream(InputStream is, int idealWidth,
-            int idealHeight) {
-        BitmapFactory.Options bmOptions = new BitmapFactory.Options();
-        bmOptions.inJustDecodeBounds = true;
-        BitmapFactory.decodeStream(is, null, bmOptions);
-        int photoW = bmOptions.outWidth;
-        int photoH = bmOptions.outHeight;
-
-        float scaleFactor =
-                Math.min(photoW / (float) idealWidth, photoH / (float) idealHeight);
-
-        Bitmap bm = BitmapFactory.decodeStream(is);
-        bm = Bitmap.createScaledBitmap(bm, (int) (photoW / scaleFactor),
-                (int) (photoH / scaleFactor), false);
-        return flip(bm);
+        return BitmapFactory.decodeFile(path, bmOptions);
     }
 
     public static Bitmap decodeStream(InputStream in, int targetMaxSizeDp) {
@@ -60,24 +43,8 @@ public class BitmapUtils {
                 baos.write(buffer, 0, len);
             }
             baos.flush();
-            InputStream is1 = new ByteArrayInputStream(baos.toByteArray());
-            InputStream is2 = new ByteArrayInputStream(baos.toByteArray());
-
-            BitmapFactory.Options o = new BitmapFactory.Options();
-            o.inJustDecodeBounds = true;
-            BitmapFactory.decodeStream(is1, null, o);
-
-            int scale = 1;
-            int maxSizePx = dpToPx(targetMaxSizeDp);
-            if (o.outHeight > maxSizePx || o.outWidth > maxSizePx) {
-                scale = (int) Math.pow(2, (int) Math.round(
-                        Math.log(maxSizePx / (double) Math.max(o.outHeight, o.outWidth)) /
-                                Math.log(0.5)));
-            }
-
-            BitmapFactory.Options o2 = new BitmapFactory.Options();
-            o2.inSampleSize = 8;
-            return flip(BitmapFactory.decodeStream(is2, null, o2));
+            InputStream is = new ByteArrayInputStream(baos.toByteArray());
+            return BitmapFactory.decodeStream(is, null, null);
         } catch (Exception e) {
             return null;
         }
@@ -91,12 +58,5 @@ public class BitmapUtils {
                         m, false);
         dst.setDensity(DisplayMetrics.DENSITY_DEFAULT);
         return dst;
-    }
-
-    public static int dpToPx(int dp) {
-        Resources r = App.getAppContext()
-                .getResources();
-        return (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, dp,
-                r.getDisplayMetrics());
     }
 }
